@@ -48,4 +48,16 @@ function resetSession(userId) {
   sessions.set(userId, { state: 'IDLE', data: {}, updatedAt: Date.now() });
 }
 
-module.exports = { getSession, updateSession, resetSession };
+/**
+ * Returns the interactive button screen identifier that was last set for the
+ * user (e.g. 'MAIN_MENU', 'LEAVE_TYPE'), or null if the last reply was a
+ * plain data/text message.  The server uses this to decide whether to send a
+ * Twilio Content Template (interactive buttons) or a plain TwiML text reply.
+ * @param {string} userId
+ * @returns {string|null}
+ */
+function getScreen(userId) {
+  return getSession(userId).data._screen || null;
+}
+
+module.exports = { getSession, updateSession, resetSession, getScreen };

@@ -1,7 +1,7 @@
 'use strict';
 
 const { processMessage } = require('../src/bot');
-const { resetSession } = require('../src/sessions');
+const { resetSession, getScreen } = require('../src/sessions');
 
 // Use a test employee that exists in the sample data
 const USER = 'whatsapp:+27821234567';
@@ -199,5 +199,78 @@ describe('countWorkingDays', () => {
   test('weekend days are not counted', () => {
     // Saturday 10 Aug to Monday 12 Aug = 1 working day (Monday only)
     expect(countWorkingDays(new Date('2024-08-10'), new Date('2024-08-12'))).toBe(1);
+  });
+});
+
+// ─── Interactive button screen tracking ──────────────────────────────────────
+// getScreen() returns the identifier the server uses to decide which Twilio
+// Content Template to send (or null for plain data/prompt replies).
+
+describe('Interactive button screen tracking', () => {
+  test('first message sets screen to MAIN_MENU', () => {
+    processMessage(USER, 'hi');
+    expect(getScreen(USER)).toBe('MAIN_MENU');
+  });
+
+  test('unknown input re-shows main menu (screen = MAIN_MENU)', () => {
+    processMessage(USER, 'hi');
+    processMessage(USER, '9'); // invalid option
+    expect(getScreen(USER)).toBe('MAIN_MENU');
+  });
+
+  test('"2" navigates to leave type selection (screen = LEAVE_TYPE)', () => {
+    processMessage(USER, 'hi');
+    processMessage(USER, '2');
+    expect(getScreen(USER)).toBe('LEAVE_TYPE');
+  });
+
+  test('"1" shows leave balance — data reply, screen is null', () => {
+    processMessage(USER, 'hi');
+    processMessage(USER, '1');
+    expect(getScreen(USER)).toBeNull();
+  });
+
+  test('"3" opens payslip period prompt — free-text input, screen is null', () => {
+    processMessage(USER, 'hi');
+    processMessage(USER, '3');
+    expect(getScreen(USER)).toBeNull();
+  });
+
+  test('"0" from leave type step returns to main menu (screen = MAIN_MENU)', () => {
+    processMessage(USER, 'hi');
+    processMessage(USER, '2'); // → LEAVE_TYPE
+    processMessage(USER, '0'); // cancel → main menu
+    expect(getScreen(USER)).toBe('MAIN_MENU');
+  });
+
+  test('invalid leave type shows text error — screen cleared to null', () => {
+    processMessage(USER, 'hi');
+    processMessage(USER, '2'); // → LEAVE_TYPE (screen = LEAVE_TYPE)
+    processMessage(USER, '9'); // invalid selection
+    expect(getScreen(USER)).toBeNull();
+  });
+
+  test('button payload "2" (same as typing "2") navigates to leave type', () => {
+    processMessage(USER, 'hi');
+    const reply = processMessage(USER, '2'); // button tap sends id "2"
+    expect(reply).toContain('Apply for Leave');
+    expect(getScreen(USER)).toBe('LEAVE_TYPE');
+  });
+
+  test('button payload "1" (same as typing "1") shows leave balance', () => {
+    processMessage(USER, 'hi');
+    const reply = processMessage(USER, '1'); // button tap sends id "1"
+    expect(reply).toContain('Leave Balance');
+    expect(getScreen(USER)).toBeNull();
+  });
+
+  test('screen is null after leave confirmation (data reply stays in MAIN_MENU state)', () => {
+    processMessage(USER, 'hi');
+    processMessage(USER, '2');          // → LEAVE_TYPE
+    processMessage(USER, '1');          // Annual
+    processMessage(USER, '05/08/2024'); // start date
+    processMessage(USER, '09/08/2024'); // end date
+    processMessage(USER, 'Holiday');    // reason → confirmation
+    expect(getScreen(USER)).toBeNull();
   });
 });
