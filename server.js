@@ -10,6 +10,14 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 
 /**
+ * POST /
+ * Friendly fallback when webhook path is misconfigured.
+ */
+app.post('/', (_req, res) => {
+  res.status(200).send('Webhook endpoint is /webhook');
+});
+
+/**
  * POST /webhook
  * Twilio sends incoming WhatsApp messages here.
  * The handler processes the message and responds with TwiML.
