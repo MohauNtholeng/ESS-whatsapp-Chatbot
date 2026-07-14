@@ -45,7 +45,7 @@ function processMessage(userId, message) {
 
   // "0" always returns to the main menu from any state
   if (input === '0' && state !== 'IDLE' && state !== 'MAIN_MENU') {
-    updateSession(userId, 'MAIN_MENU', {});
+    updateSession(userId, 'MAIN_MENU', { _screen: 'MAIN_MENU' });
     return MAIN_MENU;
   }
 
@@ -71,6 +71,7 @@ function processMessage(userId, message) {
 
     default:
       resetSession(userId);
+      updateSession(userId, 'MAIN_MENU', { _screen: 'MAIN_MENU' });
       return MAIN_MENU;
   }
 }
@@ -80,19 +81,23 @@ function processMessage(userId, message) {
 function handleMainMenu(userId, input) {
   switch (input) {
     case '1':
-      updateSession(userId, 'MAIN_MENU');
+      // Leave balance is a data reply — no interactive buttons template
+      updateSession(userId, 'MAIN_MENU', { _screen: null });
       return getLeaveBalance(userId);
 
     case '2':
-      updateSession(userId, 'LEAVE_APPLY_TYPE');
+      // Navigate to leave type selection — send the LEAVE_TYPE buttons template
+      updateSession(userId, 'LEAVE_APPLY_TYPE', { _screen: 'LEAVE_TYPE' });
       return getLeaveTypePrompt();
 
     case '3':
-      updateSession(userId, 'PAYSLIP_PERIOD');
+      // Payslip period prompt is free-text input — no buttons template
+      updateSession(userId, 'PAYSLIP_PERIOD', { _screen: null });
       return getPayslipPrompt();
 
     default:
-      updateSession(userId, 'MAIN_MENU');
+      // Unknown input: re-show the main menu with interactive buttons
+      updateSession(userId, 'MAIN_MENU', { _screen: 'MAIN_MENU' });
       return MAIN_MENU;
   }
 }
@@ -100,9 +105,12 @@ function handleMainMenu(userId, input) {
 function handleLeaveType(userId, input) {
   const result = validateLeaveType(input);
   if (!result.valid) {
+    // Show validation error as plain text so the user sees the message;
+    // clear _screen so the server does not override it with a silent template.
+    updateSession(userId, 'LEAVE_APPLY_TYPE', { _screen: null });
     return result.message;
   }
-  updateSession(userId, 'LEAVE_APPLY_START', { leaveType: result.type });
+  updateSession(userId, 'LEAVE_APPLY_START', { leaveType: result.type, _screen: null });
   return `*${result.type} Leave*\n\nPlease enter the *start date* of your leave.\nFormat: *DD/MM/YYYY* (e.g. 15/08/2024)\n\nReply *0* to cancel.`;
 }
 
@@ -114,6 +122,7 @@ function handleLeaveStart(userId, input) {
   updateSession(userId, 'LEAVE_APPLY_END', {
     startDate: input.trim(),
     startDateObj: result.date,
+    _screen: null,
   });
   return `Start date set to *${input.trim()}*.\n\nPlease enter the *end date* of your leave.\nFormat: *DD/MM/YYYY*\n\nReply *0* to cancel.`;
 }
@@ -127,6 +136,7 @@ function handleLeaveEnd(userId, input) {
   updateSession(userId, 'LEAVE_APPLY_REASON', {
     endDate: input.trim(),
     endDateObj: result.date,
+    _screen: null,
   });
   return `End date set to *${input.trim()}*.\n\nPlease enter the *reason* for your leave:`;
 }
@@ -136,7 +146,8 @@ function handleLeaveReason(userId, input) {
     return 'Please enter a reason for your leave:';
   }
   const { data } = getSession(userId);
-  updateSession(userId, 'MAIN_MENU');
+  // Confirmation is a plain data reply — no interactive buttons template
+  updateSession(userId, 'MAIN_MENU', { _screen: null });
 
   return submitLeaveApplication(userId, {
     type: data.leaveType,
@@ -149,7 +160,8 @@ function handleLeaveReason(userId, input) {
 }
 
 function handlePayslipPeriod(userId, input) {
-  updateSession(userId, 'MAIN_MENU');
+  // Pay slip data is a plain text reply — no interactive buttons template
+  updateSession(userId, 'MAIN_MENU', { _screen: null });
   return getPayslip(userId, input);
 }
 
